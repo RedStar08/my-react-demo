@@ -1,9 +1,18 @@
-.App {
+* {
+  box-sizing: border-box;
+}
+
+body {
   text-align: center;
+  background-color: #282c34;
+  min-height: 100vh;
+  font-size: calc(10px + 2vmin);
+  color: white;
 }
 
 .App-logo {
-  height: 40vmin;
+  padding: 40px;
+  height: 20vmin;
   pointer-events: none;
 }
 
@@ -14,18 +23,46 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
 }
 
 .App-link {
   color: #61dafb;
+}
+
+#hongxin {
+  width: 100%;
+  padding: 40px;
+}
+
+.Increment {
+  background-color: #1890ff;
+}
+
+.Decrement {
+  background-color: #ff4d4f;
+}
+
+button {
+  margin: 0;
+  white-space: nowrap;
+  text-align: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+  user-select: none;
+  outline: 0;
+  color: #fff;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px #0000000b;
+  padding: 6.4px 20px;
+  font-size: 16px;
+  border-radius: 40px;
+  margin-right: 12px;
+  margin-bottom: 12px;
 }
 
 @keyframes App-logo-spin {
