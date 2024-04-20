@@ -11,9 +11,14 @@ const app = <App />
 
 const elements = (
   <div>
-    <h1>I'm h1.</h1>
-    <a src="https://baidu.com">baidu</a>
+    <h1>
+      <p>I'm h1.</p>
+      <a href="https://baidu.com">baidu</a>
+    </h1>
+    <h2>I'm h2.</h2>
   </div>
 )
+
+console.log("render -> elements", elements)
 
 ReactDOM.render(elements, document.getElementById("root"))
