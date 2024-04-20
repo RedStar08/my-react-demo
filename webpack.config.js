@@ -19,6 +19,7 @@ const config = {
   },
   plugins: [
     new HtmlWebpackPlugin({
+      PUBLIC_URL: ".",
       template: path.resolve(__dirname, "/public/index.html"),
     }),
 
