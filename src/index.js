@@ -4,13 +4,15 @@
 import myReact from "./myReact/myReact"
 const ReactDOM = myReact
 
+window.myReact = myReact
+
 import App from "./App"
 import "./index.css"
 
-const app = <App />
+const app = <App a={1} b="sometext" />
 
-const elements = (
-  <div>
+const Demo = () => (
+  <div className="demo">
     <h1>
       <p>I'm h1.</p>
       <a href="https://baidu.com">baidu</a>
@@ -19,6 +21,8 @@ const elements = (
   </div>
 )
 
-console.log("render -> elements", elements)
+const demo = <Demo />
 
-ReactDOM.render(elements, document.getElementById("root"))
+console.log("render -> app", app, demo)
+
+ReactDOM.render(app, document.getElementById("root"))

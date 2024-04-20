@@ -1,23 +1,34 @@
-import React from 'react'
+import { useState } from "./myReact/myReact"
 
 function Counter() {
-  const [count, setCount] = React.useState(0)
+  const [count, setCount] = useState(0)
 
   const counter = (
     <div className="hongxin">
       <div>Counter value is: {count}</div>
       <div>
-        <button className="Increment" onClick={() => setCount(count + 1)}>
+        <button
+          className="Increment"
+          onClick={() => {
+            console.log("Increment -> ")
+            setCount(count + 1)
+          }}
+        >
           Increment
         </button>
-        <button className="Decrement" onClick={() => setCount(count - 1)}>
+        <button
+          className="Decrement"
+          onClick={() => {
+            console.log("Decrement -> ")
+            setCount(count - 1)
+          }}
+        >
           Decrement
         </button>
       </div>
     </div>
   )
-
-  console.log('counter -> jsx', counter)
+  // console.log("Counter -> render -> jsx", counter)
 
   return counter
 }

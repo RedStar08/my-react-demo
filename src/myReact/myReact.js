@@ -1,7 +1,7 @@
 const TEXT_ELEMENT = "TEXT_ELEMENT"
 const UPDATE = "UPDATE"
 const PLACEMENT = "PLACEMENT"
-const DELETION = "PLACEMENT"
+const DELETION = "DELETION"
 
 /**
  * 创建文本节点
@@ -62,25 +62,12 @@ function createDom(fiber) {
   // console.log("createDom -> ", fiber)
   const dom = fiber.type === TEXT_ELEMENT ? document.createTextNode("") : document.createElement(fiber.type)
 
-  const isProperty = (key) => key != "childern"
-  Object.keys(fiber.props)
-    .filter(isProperty)
-    .forEach((key) => {
-      dom[key] = fiber.props[key]
-    })
+  updateDom(dom, {}, fiber.props)
 
   return dom
 }
 
 function updateDom(dom, prevProps, nextProps) {
-  // 删除掉旧的不需要的属性
-  Object.keys(prevProps)
-    .filter(isProperty)
-    .filter(isGone(prevProps, nextProps))
-    .forEach((key) => {
-      dom[key] = ""
-    })
-
   //Remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
@@ -90,8 +77,16 @@ function updateDom(dom, prevProps, nextProps) {
       dom.removeEventListener(eventType, prevProps[name])
     })
 
-  // 给新的属性赋值
+  // 删除掉旧的不需要的属性
   Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach((key) => {
+      dom[key] = ""
+    })
+
+  // 给新的属性赋值
+  Object.keys(nextProps)
     .filter(isProperty)
     .filter(isNew(prevProps, nextProps))
     .forEach((key) => {
@@ -125,20 +120,36 @@ function commitWork(fiber) {
   if (!fiber) {
     return
   }
+
+  // 寻找当前最近的父亲节点用于挂载，这一步非常关键（因为必须是 host 节点才可以创建 dom 进行挂载）
+  let domPrarentFiber = fiber.parent
+  while (!domPrarentFiber.dom) {
+    domPrarentFiber = domPrarentFiber.parent
+  }
   // 提交当前 fiber 节点的 dom (把当前 fiber 节点的 dom 挂载到 父节点上)
-  const domPrarent = fiber.parent.dom
+  const domParent = domPrarentFiber.dom
   if (fiber.effectTag === PLACEMENT && fiber.dom != null) {
-    domPrarent.appendChild(fiber.dom)
+    domParent.appendChild(fiber.dom)
   } else if (fiber.effectTag === UPDATE && fiber.dom != null) {
     // 对比新旧 props
     updateDom(fiber.dom, fiber.alternate.props, fiber.props)
   } else if (fiber.effectTag === DELETION) {
-    domPrarent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   }
   // 递归挂载子节点
   commitWork(fiber.child)
   // 递归挂载兄弟节点
   commitWork(fiber.sibling)
+}
+
+function commitDeletion(fiber, domParent) {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    // 当前卸载的是 FunctionComponent 所以需要卸载他的子节点
+    // 函数组件的返回值只有一个子节点（解释了为什么所有的节点必须包裹在一个节点中，树只能有一个根）
+    commitDeletion(fiber.child, domParent)
+  }
 }
 
 // In the render function we set nextUnitOfWork to the root of the fiber tree.
@@ -171,7 +182,7 @@ let currentRoot = null
 // 需要删除的节点
 let deletions = null
 
-function workLoop(deadline) {
+function workInProgress(deadline) {
   let shouldYield = false
 
   while (nextUnitOfWork != null && !shouldYield) {
@@ -182,16 +193,16 @@ function workLoop(deadline) {
 
   // 如果当前没有下一个任务执行，并且当前的
   if (nextUnitOfWork == null && wipRoot) {
-    console.log("workLoop -> commitRoot", wipRoot, currentRoot)
+    console.log("workInProgress -> commitRoot", wipRoot, currentRoot)
     commitRoot()
   }
 
   // 开启下一帧的空闲时间继续执行任务
-  requestIdleCallback(workLoop)
+  requestIdleCallback(workInProgress)
 }
 
 // 启动开始帧的空间时间执行任务
-requestIdleCallback(workLoop)
+requestIdleCallback(workInProgress)
 
 // Here React also uses keys, that makes a better reconciliation.
 // For example, it detects when children change places in the element array
@@ -209,7 +220,6 @@ function reconcileChildren(wipFiber, elements) {
 
     // if the old fiber and the new element have the same type, we can keep the DOM node and just update it with the new props
     if (sameType) {
-      // TODO: update node
       newFiber = {
         type: oldFiber.type,
         props: element.props,
@@ -222,7 +232,6 @@ function reconcileChildren(wipFiber, elements) {
 
     // if the type is different and there is a new element, it means we need to create a new DOM node
     if (!sameType && element) {
-      // TODO： add node
       newFiber = {
         type: element.type,
         props: element.props,
@@ -235,7 +244,6 @@ function reconcileChildren(wipFiber, elements) {
 
     // and if the types are different and there is an old fiber, we need to remove the old node
     if (!sameType && oldFiber) {
-      // TODO: delete node
       oldFiber.effectTag = DELETION
       deletions.push(oldFiber)
     }
@@ -256,25 +264,75 @@ function reconcileChildren(wipFiber, elements) {
   }
 }
 
-// 执行任务的具体实现
-function performUnitOfWork(fiber) {
-  // console.log("nextUnitOfWork", fiber)
-  // TODO add dom node
+let wipFiber = null
+let hookIndex = null
+
+// 函数组件直接执行，然后再协调
+// 当遇到 <App a={1} b="sometext" /> jsx 会编译成类似 { type: App, props: { a: 1, b: "sometext", children: []} } 的 fiber
+function updateFunctionComponent(fiber) {
+  wipFiber = fiber
+  hookIndex = 0
+  wipFiber.hooks = []
+  const childern = [fiber.type(fiber.props)]
+  reconcileChildren(fiber, childern)
+}
+
+function useState(initial) {
+  const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex]
+
+  console.log("useState -> oldHook", oldHook)
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: [],
+  }
+
+  const actions = oldHook ? oldHook.queue : []
+  actions.forEach((action) => {
+    if (action instanceof Function) {
+      hook.state = action(hook.state)
+    } else {
+      hook.state = action
+    }
+  })
+
+  const setState = (action) => {
+    hook.queue.push(action)
+    // 从根节点开启下一轮的 diff
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    }
+    nextUnitOfWork = wipRoot
+    deletions = []
+  }
+
+  wipFiber.hooks.push(hook)
+  hookIndex++
+  return [hook.state, setState]
+}
+
+// 当遇到 <h1>123</h1> jsx 会编译成类似 { type: "h1", props: { children: [{ type: TEXT_ELEMENT}]} } 的 fiber
+function updateHostComponent(fiber) {
   if (!fiber.dom) {
     // 除了 root fiber 有真实 dom (render 函数给的) ，其余的 fiber 都需要自己去创建
     fiber.dom = createDom(fiber)
   }
 
-  // 当前的 fiber 任务挂载到自身的父节点（父节点为真实 dom）
-  // if (fiber.parent) {
-  //   // 这里不能直接就把节点渲染上去，因为任务有可能随时中断，用户不希望看到挂载一半的页面
-  //   fiber.parent.dom.appendChild(fiber.dom)
-  // }
-
-  // 需要一次性提交，但是提交之前先需要执行 协调操作 （新旧两颗 fiber 树进行 diff）
-  // TODO create new fibers (开始执行子节点的 fiber 构建，主要是通过 child parent sibling 连接成树的结构)
   const elements = fiber.props.childern
+  // 需要一次性提交，但是提交之前先需要执行 协调操作 （新旧两颗 fiber 树进行 diff）
   reconcileChildren(fiber, elements)
+}
+
+// 执行任务的具体实现
+function performUnitOfWork(fiber) {
+  // console.log("nextUnitOfWork", fiber)
+  const isFunctionComponent = fiber.type instanceof Function
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
+  }
 
   // TODO return next unit of work
   // 从上到下，从左到右，依次执行
@@ -295,6 +353,6 @@ function performUnitOfWork(fiber) {
 
 const myReact = { createElement, render }
 
-export { createElement, render }
+export { createElement, render, useState }
 
 export default myReact
